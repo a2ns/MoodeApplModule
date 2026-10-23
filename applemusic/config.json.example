@@ -1,0 +1,7 @@
+{
+	"team_id": "YOUR_TEAM_ID",
+	"key_id": "YOUR_KEY_ID",
+	"private_key_path": "/var/local/www/applemusic/AuthKey_YOURKEYID.p8",
+	"storefront": "FR",
+	"data_dir": "/var/local/www/applemusic/data"
+}

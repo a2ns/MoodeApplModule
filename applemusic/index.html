@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple Music — moOde</title>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+:root {
+	--bg: #1c1c1e;
+	--panel: #2a2a2d;
+	--accent: #fa2d48;
+	--text: #f5f5f7;
+	--muted: #98989d;
+}
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	background: var(--bg);
+	color: var(--text);
+	min-height: 100vh;
+}
+header {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: rgba(28, 28, 30, 0.9);
+	backdrop-filter: blur(10px);
+	padding: 12px 16px;
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	border-bottom: 1px solid #3a3a3d;
+}
+header h1 {
+	font-size: 18px;
+	margin: 0;
+	color: var(--accent);
+	white-space: nowrap;
+}
+#search {
+	flex: 1;
+	padding: 8px 14px;
+	border-radius: 10px;
+	border: 1px solid #3a3a3d;
+	background: var(--panel);
+	color: var(--text);
+	font-size: 14px;
+	outline: none;
+}
+#search:focus { border-color: var(--accent); }
+#auth-btn {
+	padding: 8px 14px;
+	border-radius: 10px;
+	border: none;
+	background: var(--accent);
+	color: white;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+}
+#auth-btn.connected { background: #30d158; }
+.tabs {
+	display: flex;
+	gap: 8px;
+	padding: 12px 16px 0;
+}
+.tab {
+	padding: 8px 16px;
+	border-radius: 10px 10px 0 0;
+	background: var(--panel);
+	color: var(--muted);
+	cursor: pointer;
+	font-size: 14px;
+	border: none;
+}
+.tab.active { background: var(--accent); color: white; font-weight: 600; }
+main { padding: 12px 16px 96px; max-width: 900px; margin: 0 auto; }
+.list-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px;
+	border-radius: 12px;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+.list-item:hover { background: var(--panel); }
+.list-item img {
+	width: 48px;
+	height: 48px;
+	border-radius: 8px;
+	object-fit: cover;
+	background: #3a3a3d;
+}
+.list-item .meta { flex: 1; min-width: 0; }
+.list-item .title {
+	font-size: 15px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.list-item .subtitle {
+	font-size: 13px;
+	color: var(--muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.list-item .play-btn {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	border: none;
+	background: var(--accent);
+	color: white;
+	font-size: 14px;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+.section-title {
+	margin: 20px 0 8px;
+	font-size: 20px;
+	font-weight: 700;
+}
+#now-playing {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: rgba(42, 42, 45, 0.95);
+	backdrop-filter: blur(10px);
+	border-top: 1px solid #3a3a3d;
+	padding: 10px 16px;
+	display: none;
+	align-items: center;
+	gap: 12px;
+}
+#now-playing img { width: 44px; height: 44px; border-radius: 6px; }
+#np-meta { flex: 1; min-width: 0; }
+#np-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#np-artist { font-size: 12px; color: var(--muted); }
+#np-controls { display: flex; gap: 8px; }
+#np-controls button {
+	width: 40px; height: 40px;
+	border-radius: 50%;
+	border: none;
+	background: #3a3a3d;
+	color: white;
+	font-size: 16px;
+	cursor: pointer;
+}
+#back-btn {
+	margin: 0 0 8px;
+	padding: 6px 12px;
+	border-radius: 8px;
+	border: none;
+	background: var(--panel);
+	color: var(--text);
+	cursor: pointer;
+	font-size: 13px;
+}
+.banner {
+	margin: 12px 16px;
+	padding: 12px 16px;
+	border-radius: 12px;
+	background: #3a3a3d;
+	color: var(--muted);
+	font-size: 14px;
+	display: none;
+}
+.banner.error { color: #ff6b6b; }
+.loading { text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+	<h1> Apple Music</h1>
+	<input id="search" type="search" placeholder="Rechercher des morceaux, albums, artistes…">
+	<button id="auth-btn">Connecter</button>
+</header>
+<div id="banner" class="banner"></div>
+<div class="tabs">
+	<button class="tab active" data-view="playlists">Mes playlists</button>
+	<button class="tab" data-view="library">Ma bibliothèque</button>
+	<button class="tab" data-view="search">Recherche</button>
+</div>
+<main id="content"><div class="loading">Chargement…</div></main>
+<div id="now-playing">
+	<img id="np-art" alt="">
+	<div id="np-meta">
+		<div id="np-title"></div>
+		<div id="np-artist"></div>
+	</div>
+	<div id="np-controls">
+		<button id="np-prev">⏮</button>
+		<button id="np-play">⏯</button>
+		<button id="np-next">⏭</button>
+	</div>
+</div>
+
+<script src="https://js-cdn.music.apple.com/musickit/v3/musickit.js"></script>
+<script>
+'use strict';
+const API = '../api/';
+const content = document.getElementById('content');
+const banner = document.getElementById('banner');
+const searchInput = document.getElementById('search');
+const authBtn = document.getElementById('auth-btn');
+
+let state = {
+	configured: false,
+	authorized: false,
+	storefront: 'FR',
+	view: 'playlists',
+	searchTerm: '',
+	playlist: null,   // {id, title}
+	libraryQueue: [], // current playing queue
+	queueIndex: -1,
+};
+
+function showBanner(msg, isError) {
+	banner.textContent = msg;
+	banner.className = 'banner' + (isError ? ' error' : '');
+	banner.style.display = 'block';
+}
+function hideBanner() { banner.style.display = 'none'; }
+
+async function api(action, params) {
+	const qs = new URLSearchParams(params || {});
+	const res = await fetch(API + '?action=' + action + (qs.toString() ? '&' + qs : ''));
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+	return data;
+}
+
+function esc(s) {
+	return String(s).replace(/[&<>"']/g, c => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	}[c]));
+}
+
+/* ---------- Status & auth ---------- */
+
+async function refreshStatus() {
+	try {
+		const st = await api('status');
+		state.configured = st.configured;
+		state.authorized = st.authorized;
+		state.storefront = st.storefront || state.storefront;
+	} catch (e) {
+		showBanner('Erreur module : ' + e.message, true);
+		state.configured = false;
+	}
+	updateAuthBtn();
+}
+
+function updateAuthBtn() {
+	if (!state.configured) {
+		authBtn.textContent = 'Non configuré';
+		authBtn.className = '';
+		authBtn.disabled = true;
+	} else if (state.authorized) {
+		authBtn.textContent = 'Connecté';
+		authBtn.className = 'connected';
+		authBtn.disabled = false;
+	} else {
+		authBtn.textContent = 'Connecter';
+		authBtn.className = '';
+		authBtn.disabled = false;
+	}
+}
+
+authBtn.addEventListener('click', async () => {
+	if (state.authorized) {
+		if (confirm('Déconnecter le compte Apple Music ?')) {
+			await fetch(API + '?action=logout', { method: 'POST' });
+			state.authorized = false;
+			updateAuthBtn();
+			render();
+		}
+		return;
+	}
+	try {
+		hideBanner();
+		const music = await MusicKit.getInstance();
+		await music.authorize();
+		const mut = music.musicUserToken;
+		await fetch(API + '?action=authtoken', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ token: mut })
+		});
+		state.authorized = true;
+		updateAuthBtn();
+		render();
+	} catch (e) {
+		showBanner('Autorisation Apple Music refusée ou échouée.', true);
+	}
+});
+
+/* ---------- MusicKit setup ---------- */
+
+async function setupMusicKit() {
+	const { developerToken } = await api('devtoken');
+	await MusicKit.configure({
+		developerToken,
+		app: { name: 'moOde Apple Music', build: '1.0' },
+	});
+	const music = MusicKit.getInstance();
+	music.addEventListener('playbackStateChange', () => updateNowPlaying());
+}
+
+/* ---------- Playback ---------- */
+
+async function playTrack(catalogId, queue, index) {
+	const music = await MusicKit.getInstance();
+	if (queue) {
+		state.libraryQueue = queue;
+		state.queueIndex = index;
+	}
+	music.setQueue({ songs: [catalogId] });
+	await music.play();
+	showNowPlaying();
+}
+
+async function playQueueItem(index) {
+	if (index < 0 || index >= state.libraryQueue.length) return;
+	state.queueIndex = index;
+	const music = await MusicKit.getInstance();
+	music.setQueue({ songs: [state.libraryQueue[index].id] });
+	await music.play();
+	showNowPlaying();
+}
+
+function showNowPlaying() {
+	document.getElementById('now-playing').style.display = 'flex';
+	updateNowPlaying();
+}
+
+function updateNowPlaying() {
+	const music = MusicKit.getInstance();
+	const now = music.nowPlayingItem;
+	if (!now) return;
+	document.getElementById('np-title').textContent = now.title || '';
+	document.getElementById('np-artist').textContent = now.artistName || '';
+	const art = now.artworkUrlTemplate;
+	if (art) {
+		document.getElementById('np-art').src = art.replace('{w}', '88').replace('{h}', '88');
+	}
+	document.getElementById('np-play').textContent = music.playbackState === 'playing' ? '⏸' : '▶';
+}
+
+document.getElementById('np-play').addEventListener('click', async () => {
+	const music = await MusicKit.getInstance();
+	music.playbackState === 'playing' ? music.pause() : music.play();
+});
+document.getElementById('np-next').addEventListener('click', () => playQueueItem(state.queueIndex + 1));
+document.getElementById('np-prev').addEventListener('click', () => playQueueItem(state.queueIndex - 1));
+
+/* ---------- Rendering ---------- */
+
+function resetContent(loader) {
+	hideBanner();
+	content.innerHTML = loader ? '<div class="loading">Chargement…</div>' : '';
+}
+
+function renderItem(artworkUrl, title, subtitle, onClick, onPlay) {
+	const div = document.createElement('div');
+	div.className = 'list-item';
+	const imgHtml = artworkUrl
+		? `<img src="${esc(artworkUrl)}" alt="" loading="lazy">`
+		: '<img alt="">';
+	div.innerHTML = imgHtml + `
+		<div class="meta">
+			<div class="title">${esc(title)}</div>
+			<div class="subtitle">${esc(subtitle)}</div>
+		</div>`;
+	if (onPlay) {
+		const btn = document.createElement('button');
+		btn.className = 'play-btn';
+		btn.textContent = '▶';
+		btn.addEventListener('click', (e) => { e.stopPropagation(); onPlay(); });
+		div.appendChild(btn);
+	}
+	div.addEventListener('click', onClick);
+	return div;
+}
+
+function artworkUrl(attributes, size) {
+	const tpl = attributes && attributes.artwork && attributes.artwork.url;
+	if (!tpl) return null;
+	return tpl.replace('{w}', size).replace('{h}', size);
+}
+
+async function render() {
+	resetContent(true);
+	try {
+		if (state.view === 'playlists') await renderPlaylists();
+		else if (state.view === 'playlist') await renderPlaylistTracks();
+		else if (state.view === 'library') await renderLibrary();
+		else if (state.view === 'search') await renderSearch();
+	} catch (e) {
+		content.innerHTML = '';
+		showBanner(e.message, true);
+	}
+}
+
+async function renderPlaylists() {
+	if (!state.authorized) {
+		content.innerHTML = '<div class="loading">Cliquez sur « Connecter » pour accéder à vos playlists Apple Music.</div>';
+		return;
+	}
+	const data = await api('playlists');
+	const list = (data.data || []).map(p => ({
+		id: p.id,
+		title: p.attributes && p.attributes.name || 'Sans titre',
+		art: p.attributes && p.attributes.artwork && p.attributes.artwork.url
+			? p.attributes.artwork.url.replace('{w}', '96').replace('{h}', '96')
+			: null,
+		count: p.attributes && p.attributes.trackCount || 0,
+	}));
+	if (list.length === 0) {
+		content.innerHTML = '<div class="loading">Aucune playlist dans votre bibliothèque.</div>';
+		return;
+	}
+	const h = document.createElement('div');
+	h.className = 'section-title';
+	h.textContent = 'Mes playlists';
+	content.innerHTML = '';
+	content.appendChild(h);
+	for (const pl of list) {
+		content.appendChild(renderItem(pl.art, pl.title, pl.count + ' morceaux', () => {
+			state.playlist = pl;
+			state.view = 'playlist';
+			render();
+		}));
+	}
+}
+
+async function renderPlaylistTracks() {
+	const back = document.createElement('button');
+	back.id = 'back-btn';
+	back.textContent = '← Playlists';
+	back.addEventListener('click', () => { state.view = 'playlists'; state.playlist = null; render(); });
+	content.innerHTML = '';
+	content.appendChild(back);
+
+	if (!state.playlist) { state.view = 'playlists'; return renderPlaylists(); }
+
+	const data = await api('playlist', { id: state.playlist.id });
+	const tracks = (data.data || []).map((t, i) => ({
+		index: i,
+		id: t.attributes && t.attributes.playParams && t.attributes.playParams.catalogId,
+		title: t.attributes && t.attributes.name || '—',
+		artist: t.attributes && t.attributes.artistName || '',
+		art: artworkUrl(t.attributes, 96),
+		kind: t.type,
+	}));
+
+	const h = document.createElement('div');
+	h.className = 'section-title';
+	h.textContent = state.playlist.title;
+	content.appendChild(h);
+
+	if (tracks.length === 0) {
+		content.insertAdjacentHTML('beforeend', '<div class="loading">Playlist vide.</div>');
+		return;
+	}
+
+	const playable = tracks.filter(t => t.id);
+	state.libraryQueue = playable;
+
+	tracks.forEach((t) => {
+		const item = renderItem(t.art, t.title, t.artist,
+			() => { if (t.id) playQueueItem(state.libraryQueue.indexOf(t)); },
+			() => { if (t.id) playQueueItem(state.libraryQueue.indexOf(t)); });
+		content.appendChild(item);
+	});
+}
+
+async function renderLibrary() {
+	if (!state.authorized) {
+		content.innerHTML = '<div class="loading">Cliquez sur « Connecter » pour accéder à votre bibliothèque.</div>';
+		return;
+	}
+	const data = await api('library');
+	const songs = (data.data || []).map((t, i) => ({
+		id: t.attributes && t.attributes.playParams && t.attributes.playParams.catalogId,
+		title: t.attributes && t.attributes.name || '—',
+		artist: t.attributes && t.attributes.artistName || '',
+		art: artworkUrl(t.attributes, 96),
+	}));
+	if (songs.length === 0) {
+		content.innerHTML = '<div class="loading">Bibliothèque vide.</div>';
+		return;
+	}
+	const h = document.createElement('div');
+	h.className = 'section-title';
+	h.textContent = 'Ma bibliothèque';
+	content.innerHTML = '';
+	content.appendChild(h);
+	state.libraryQueue = songs.filter(s => s.id);
+	songs.forEach((s) => {
+		content.appendChild(renderItem(s.art, s.title, s.artist,
+			() => { if (s.id) playQueueItem(state.libraryQueue.indexOf(s)); },
+			() => { if (s.id) playQueueItem(state.libraryQueue.indexOf(s)); }));
+	});
+}
+
+async function renderSearch() {
+	if (!state.searchTerm) {
+		content.innerHTML = '<div class="loading">Tapez un terme dans la barre de recherche ci-dessus.</div>';
+		return;
+	}
+	const data = await api('search', { term: state.searchTerm });
+	content.innerHTML = '';
+	const groups = [
+		['songs', 'Morceaux'],
+		['albums', 'Albums'],
+		['artists', 'Artistes'],
+	];
+	for (const [type, label] of groups) {
+		const results = data.results && data.results[type] && data.results[type].data || [];
+		if (results.length === 0) continue;
+		const h = document.createElement('div');
+		h.className = 'section-title';
+		h.textContent = label;
+		content.appendChild(h);
+		for (const r of results) {
+			const a = r.attributes || {};
+			const art = artworkUrl(a, 96);
+			const songId = a.playParams && a.playParams.catalogId;
+			const subtitle = type === 'songs' ? (a.artistName || '')
+				: type === 'albums' ? (a.artistName || '')
+				: (a.genreNames && a.genreNames.join(', ') || '');
+			content.appendChild(renderItem(art, a.name || '—', subtitle,
+				() => { if (songId) playTrack(songId); },
+				type === 'songs' ? () => { if (songId) playTrack(songId); } : null));
+		}
+	}
+	if (!content.children.length) {
+		content.innerHTML = '<div class="loading">Aucun résultat pour « ' + esc(state.searchTerm) + ' ».</div>';
+	}
+}
+
+/* ---------- Tabs & search input ---------- */
+
+document.querySelectorAll('.tab').forEach((tab) => {
+	tab.addEventListener('click', () => {
+		document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+		tab.classList.add('active');
+		state.view = tab.dataset.view;
+		state.playlist = null;
+		render();
+	});
+});
+
+let searchTimer = null;
+searchInput.addEventListener('input', () => {
+	clearTimeout(searchTimer);
+	searchTimer = setTimeout(() => {
+		state.searchTerm = searchInput.value.trim();
+		if (state.searchTerm) {
+			document.querySelector('.tab[data-view="search"]').click();
+			state.view = 'search';
+			render();
+		}
+	}, 400);
+});
+
+/* ---------- Init ---------- */
+
+(async function init() {
+	try {
+		await setupMusicKit();
+	} catch (e) {
+		showBanner('MusicKit indisponible : ' + e.message, true);
+	}
+	await refreshStatus();
+	render();
+})();
+</script>
+</body>
+</html>

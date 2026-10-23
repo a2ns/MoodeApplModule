@@ -14,6 +14,11 @@ node_modules/
 build/
 dist/
 
+# Secrets - never commit real keys or filled-in config
+applemusic/config.json
+applemusic/AuthKey_*.p8
+applemusic/data/
+
 # Editors / OS
 .vscode/
 .idea/
